@@ -15,7 +15,7 @@
 	if MailTags Tickle Date is After 0 days today  
 	Run Apple Script: [ThisAppleScript]
 	
-	Version 001
+	Version 002
 *)
 
 
@@ -26,10 +26,10 @@
 property mailBody : true
 
 -- Text between mail recipient (the person you are waiting for to come back) and the email subject
-property MidFix : "Warten auf Antwort: "
+property MidFix : "Waiting for "
 
 -- Name of your Waiting For context in OmniFocus
-property myWFContext : "Waiting"
+property myWFContext : "Waiting for"
 
 -- Default start time
 property timeStart : "5:00:00 AM"
@@ -80,28 +80,48 @@ using terms from application "Mail"
 						set theRecipientName to item 1 of theRecipient
 					end if
 					
-					set theTaskTitle to MidFix & theSubject & " von " & theRecipientName
-					set messageURL to "Erstellt von Nachricht://%3C" & (theMessageID) & "%3E"
+					set theTaskTitle to MidFix & theSubject & " from " & theRecipientName
+					set messageURL to "Message://%3C" & (theMessageID) & "%3E"
 					set theBody to messageURL
 					if mailBody then set theBody to theBody & return & return & the content of theMessage
 					
 					-- Add waiting for context task to OmniFocus
-					tell application "OmniFocus"
-						tell default document
-							set theContext to context myWFContext
-							
-							if theStartDate is not "" then
-								if theProject is not null then
-									set theProject to (first flattened project where its name = theProject)
-									tell theProject to make new task with properties {name:theTaskTitle, note:theBody, context:theContext, due date:theDueDate}
-									--	set theTask to make new inbox task with properties {name:theTaskTitle, note:theBody, context:theContext, start date:theStartDate, due date:theDueDate}
-								end if
-							else
-								set theTask to make new inbox task with properties {name:theTaskTitle, note:theBody, context:theContext}
+					if theProject is not missing value then
+						
+						tell application "OmniFocus"
+							tell default document
+								set newTaskProps to {name:theTaskTitle}
+								set theContext to context myWFContext
+								set theProject to (first flattened project where its name = theProject)
 								
-							end if
+								if theProject is not missing value then set newTaskProps to newTaskProps & {name:theProject}
+								if theContext is not missing value then set newTaskProps to newTaskProps & {context:theContext}
+								if theDueDate is not missing value then set newTaskProps to newTaskProps & {due date:theDueDate}
+								if theBody is not missing value then set newTaskProps to newTaskProps & {note:theBody}
+								
+								tell theProject to make new task with properties newTaskProps
+								
+							end tell
 						end tell
-					end tell
+						
+					else
+						
+						tell application "OmniFocus"
+							tell default document
+								set newTaskProps to {name:theTaskTitle}
+								set theContext to context myWFContext
+								log theContext
+								log theDueDate
+								log theBody
+								if theContext is not missing value then set newTaskProps to newTaskProps & {context:theContext}
+								if theDueDate is not missing value then set newTaskProps to newTaskProps & {due date:theDueDate}
+								if theBody is not missing value then set newTaskProps to newTaskProps & {note:theBody}
+								
+								set newTask to make new inbox task with properties newTaskProps
+							end tell
+						end tell
+						
+					end if
 					
 				on error theError
 					do shell script "logger -t outboxrule 'Error : " & theError & "' "
